@@ -17,24 +17,35 @@ app.get("/all/:proposal_id", async (req, res) => {
   return res.json({ status: true, data: proposalData });
 });
 app.post("/add", async (req, res) => {
-  const { author, markdown, reply,proposal_id,timestamp } = req.body;
-  if (!author || !markdown || !reply|| !proposal_id|| !timestamp)
+  const { author, markdown, reply, proposal_id, timestamp } = req.body;
+  if (!author || !markdown || !reply || !proposal_id || !timestamp)
     return res.json({ status: false, data: [] });
   const insertedComment = await db.put({
     author,
     markdown,
     reply,
     proposal_id,
-    timestamp
+    timestamp,
   });
-  if(insertedComment) return res.status(201).json({status:true,data:[]}); else return res.json({ status: false, data: [] });
+  if (insertedComment) return res.status(201).json({ status: true, data: [] });
+  else return res.json({ status: false, data: [] });
 });
-app.post("/update", (req, res) => res.send("Hello World!"));
-app.delete("/delete/:key",async (req, res) => {
-if(!req.params.key) return res.json({status:false})
-await db.delete(req.params.key);
-const getItem=await db.get(req.params.key);
-if(!getItem) return res.status(201).json({status:true,data:[]}); else return res.json({ status: false, data: [] });
+app.post("/update/:keys", async (req, res) => {
+  if(!req.params.key) return res.json({status:false});
+  try{
+    const update=req.body;
+    await db.update(update,req.params.key)
+    return res.json({status:true})
+  }catch(e){
+    return res.json({status:false})
+  }
+});
+app.delete("/delete/:key", async (req, res) => {
+  if (!req.params.key) return res.json({ status: false });
+  await db.delete(req.params.key);
+  const getItem = await db.get(req.params.key);
+  if (!getItem) return res.status(201).json({ status: true, data: [] });
+  else return res.json({ status: false, data: [] });
 });
 
 // export 'app'
