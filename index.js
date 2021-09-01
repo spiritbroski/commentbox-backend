@@ -16,7 +16,7 @@ app.get("/all/:proposal_id", async (req, res) => {
   );
   return res.json({ status: true, data: proposalData });
 });
-app.get("/all/:proposal_id/:main_thread_id", async (req, res) => {
+app.get("/all_reply/:proposal_id/:main_thread_id", async (req, res) => {
   if (!req.params.proposal_id) return res.json({ status: false, data: [] });
   const proposalData = await db.fetch(
     { proposal_id: req.params.proposal_id,main_thread:false,main_thread_id:req.params.main_thread_id },
