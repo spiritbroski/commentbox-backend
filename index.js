@@ -34,7 +34,7 @@ app.post("/add", async (req, res) => {
     proposal_id,
     timestamp:new Date().getTime(),
     main_thread:true
-  });
+  },new Date().getTime().toString());
   if (insertedComment) return res.status(201).json({ status: true, data: [] });
   else return res.json({ status: false, data: [] });
 });
@@ -52,7 +52,7 @@ app.post("/add_reply", async (req, res) => {
     reply_to,
     reply,
     reply_thread_id
-  });
+  },new Date().getTime().toString());
   if (insertedComment) return res.status(201).json({ status: true, data: [] });
   else return res.json({ status: false, data: [] });
 });
@@ -62,6 +62,18 @@ app.post("/update/:key", async (req, res) => {
     const update=req.body;
     update.edit_timestamp=new Date().getTime();
     await db.update(update,req.params.key)
+    const getItemFirst = await db.get(req.params.key);
+    if(!getItemFirst.main_thread) {
+      let res = await db.fetch({reply_thread_id:getItemFirst.key});
+  let allItems = res.items;
+  while (res.last){
+    res = await db.fetch({reply_thread_id:getItemFirst.key}, {last: res.last});
+    allItems = allItems.concat(res.items);
+  }
+  for(let i=0;i<allItems.length;i++){
+    await db.update({deleted:false,edited:true},allItems[i].key)
+  }
+    }
     return res.json({status:true})
   }catch(e){
     return res.json({status:false})
@@ -69,9 +81,34 @@ app.post("/update/:key", async (req, res) => {
 });
 app.delete("/delete/:key", async (req, res) => {
   if (!req.params.key) return res.json({ status: false });
+  const getItemFirst = await db.get(req.params.key);
+  if(getItemFirst.main_thread) {
+    let res = await db.fetch({main_thread_id:getItemFirst.key});
+let allItems = res.items;
+while (res.last){
+  res = await db.fetch({main_thread_id:getItemFirst.key}, {last: res.last});
+  allItems = allItems.concat(res.items);
+}
+for(let i=0;i<allItems.length;i++){
+  await db.delete(allItems[i].key)
+}
+  }else{
+    let res = await db.fetch({reply_thread_id:getItemFirst.key});
+    let allItems = res.items;
+    while (res.last){
+      res = await db.fetch({reply_thread_id:getItemFirst.key}, {last: res.last});
+      allItems = allItems.concat(res.items);
+    }
+    for(let i=0;i<allItems.length;i++){
+      await db.update({deleted:true,edited:false},allItems[i].key)
+    }   
+  }
   await db.delete(req.params.key);
   const getItem = await db.get(req.params.key);
-  if (!getItem) return res.status(201).json({ status: true, data: [] });
+  if (!getItem){
+    const update=await db.fetch()
+    return res.status(201).json({ status: true, data: [] });
+  } 
   else return res.json({ status: false, data: [] });
 });
 
