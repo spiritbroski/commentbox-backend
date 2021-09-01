@@ -39,8 +39,8 @@ app.post("/add", async (req, res) => {
   else return res.json({ status: false, data: [] });
 });
 app.post("/add_reply", async (req, res) => {
-  const { author, markdown, proposal_id,main_thread_id,reply_to,reply } = req.body;
-  if (!author || !markdown || !proposal_id || !main_thread_id || !reply_to || !reply)
+  const { author, markdown, proposal_id,main_thread_id,reply_to,reply,reply_thread_id } = req.body;
+  if (!author || !markdown || !proposal_id || !main_thread_id || !reply_to || !reply || !reply_thread_id)
     return res.json({ status: false, data: [] });
   const insertedComment = await db.put({
     author,
@@ -50,7 +50,8 @@ app.post("/add_reply", async (req, res) => {
     main_thread:false,
     main_thread_id,
     reply_to,
-    reply
+    reply,
+    reply_thread_id
   });
   if (insertedComment) return res.status(201).json({ status: true, data: [] });
   else return res.json({ status: false, data: [] });
