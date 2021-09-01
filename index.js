@@ -11,7 +11,15 @@ const db = deta.Base("simple_db");
 app.get("/all/:proposal_id", async (req, res) => {
   if (!req.params.proposal_id) return res.json({ status: false, data: [] });
   const proposalData = await db.fetch(
-    { proposal_id: req.params.proposal_id },
+    { proposal_id: req.params.proposal_id,main_thread:true },
+    { limit: 5, last: req.query.last ? req.query.last : null }
+  );
+  return res.json({ status: true, data: proposalData });
+});
+app.get("/all/:proposal_id/:main_thread_id", async (req, res) => {
+  if (!req.params.proposal_id) return res.json({ status: false, data: [] });
+  const proposalData = await db.fetch(
+    { proposal_id: req.params.proposal_id,main_thread:false,main_thread_id:req.params.main_thread_id },
     { limit: 5, last: req.query.last ? req.query.last : null }
   );
   return res.json({ status: true, data: proposalData });
