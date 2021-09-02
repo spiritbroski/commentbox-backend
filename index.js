@@ -9,7 +9,7 @@ const { Deta } = require("deta");
 const deta = Deta("c08piu78_wyraVGQooFYPtpARJhkqxykuz9nZSa2b");
 const db = deta.Base("simple_db");
 app.get("/all/:proposal_id", async (req, res) => {
-  if (!req.params.proposal_id) return res.json({ status: false, data: [] });
+  if (!req.params.proposal_id) return res.json({ status: false });
   const proposalData = await db.fetch(
     { proposal_id: req.params.proposal_id, main_thread: true },
     { limit: 5, last: req.query.last ? req.query.last : null }
@@ -17,7 +17,7 @@ app.get("/all/:proposal_id", async (req, res) => {
   return res.json({ status: true, data: proposalData });
 });
 app.get("/all_reply/:proposal_id/:main_thread_id", async (req, res) => {
-  if (!req.params.proposal_id) return res.json({ status: false, data: [] });
+  if (!req.params.proposal_id) return res.json({ status: false });
   const proposalData = await db.fetch(
     {
       proposal_id: req.params.proposal_id,
@@ -31,7 +31,7 @@ app.get("/all_reply/:proposal_id/:main_thread_id", async (req, res) => {
 app.post("/add", async (req, res) => {
   const { author, markdown, proposal_id } = req.body;
   if (!author || !markdown || !proposal_id)
-    return res.json({ status: false, data: [] });
+    return res.json({ status: false });
   const insertedComment = await db.put(
     {
       author,
