@@ -1,5 +1,6 @@
 // install express with `npm install express`
 //https://github.com/snapshot-labs/snapshot-hub/blob/26715e16fbd7708e6133c522cd428091384733e3/src/ingestor/personalSign/utils.ts#L51
+//https://github.com/austintgriffith/scaffold-eth/blob/02e3a8507e77ba2d10f95f53bc5744d9e7b488e9/packages/api/src/lib/auth.ts#L12
 const express = require("express");
 const app = express();
 const cors = require("cors");
