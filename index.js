@@ -1,21 +1,22 @@
-// install express with `npm install express`
-//https://github.com/snapshot-labs/snapshot-hub/blob/26715e16fbd7708e6133c522cd428091384733e3/src/ingestor/personalSign/utils.ts#L51
-//https://github.com/austintgriffith/scaffold-eth/blob/02e3a8507e77ba2d10f95f53bc5744d9e7b488e9/packages/api/src/lib/auth.ts#L12
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const cookieParser = require('cookie-parser');
 app.use(express.json());
 app.use(express.urlencoded());
-app.use(cors());
+app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+app.use(cookieParser());
 const { Deta } = require("deta");
 const deta = Deta("c08piu78_wyraVGQooFYPtpARJhkqxykuz9nZSa2b");
 const db = deta.Base("simple_db");
+const {verifySignature,hashPersonalMessage}=require("./verify")
 app.get("/all/:proposal_id", async (req, res) => {
   if (!req.params.proposal_id) return res.json({ status: false });
   const proposalData = await db.fetch(
     { proposal_id: req.params.proposal_id, main_thread: true },
     { limit: 5, last: req.query.last ? req.query.last : null }
   );
+  res.cookie('cookieName', 'cookieValue', { sameSite: 'none',secure:true});
   return res.json({ status: true, data: proposalData });
 });
 app.get("/all_reply/:proposal_id/:main_thread_id", async (req, res) => {
@@ -30,7 +31,11 @@ app.get("/all_reply/:proposal_id/:main_thread_id", async (req, res) => {
   );
   return res.json({ status: true, data: proposalData });
 });
+app.post("/ajur", async (req, res) => {
+  res.json(req.cookies)
+})
 app.post("/add", async (req, res) => {
+  let token;
   const { author, markdown, proposal_id } = req.body;
   if (!author || !markdown || !proposal_id)
     return res.json({ status: false });
@@ -151,3 +156,4 @@ app.delete("/delete/:key", async (req, res) => {
 
 // export 'app'
 module.exports = app;
+// app.listen(3000)
