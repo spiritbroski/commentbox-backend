@@ -1,11 +1,10 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 app.use(express.json());
 app.use(express.urlencoded());
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
-app.use(cookieParser());
+app.use(cors());
 const { Deta } = require("deta");
 const deta = Deta("c08piu78_wyraVGQooFYPtpARJhkqxykuz9nZSa2b");
 const db = deta.Base("simple_db");
@@ -16,7 +15,7 @@ app.get("/all/:proposal_id", async (req, res) => {
     { proposal_id: req.params.proposal_id, main_thread: true },
     { limit: 5, last: req.query.last ? req.query.last : null }
   );
-  res.cookie('cookieName', 'cookieValue', { sameSite: 'none',secure:true});
+ 
   return res.json({ status: true, data: proposalData });
 });
 app.get("/all_reply/:proposal_id/:main_thread_id", async (req, res) => {
@@ -31,26 +30,62 @@ app.get("/all_reply/:proposal_id/:main_thread_id", async (req, res) => {
   );
   return res.json({ status: true, data: proposalData });
 });
-app.post("/ajur", async (req, res) => {
-  res.json(req.cookies)
-})
-app.post("/add", async (req, res) => {
+async function verifyUser(req){
+  const { address,msg,sig } = req.body;
+  if (!req.body || !address || !msg ) return false;
   let token;
-  const { author, markdown, proposal_id } = req.body;
-  if (!author || !markdown || !proposal_id)
-    return res.json({ status: false });
-  const insertedComment = await db.put(
-    {
-      author,
+  if(!req.headers.authorization) {
+  
+    if(!(await verifySignature(
+      address,
+      sig,
+      hashPersonalMessage(msg)
+    ))){
+      
+      return false
+    } else {
+    
+      token = jwt.sign({
+        address
+      }, 'secret')
+      return {token}
+    }
+  }else{
+   
+    try{
+      const decoded = jwt.verify(req.headers.authorization, 'secret');
+        if(decoded.address!==address) return false; else return {msg};
+    }catch(e){
+     
+      return false;
+    }
+  }
+}
+app.post("/add", async (req, res) => {
+  const checkUser=await verifyUser(req);
+  if(!checkUser) return res.json({status:false})
+  const {token,msg}=checkUser;
+  try{
+    const {author,
       markdown,
-      proposal_id,
-      timestamp: new Date().getTime(),
-      main_thread: true,
-    },
-    new Date().getTime().toString()
-  );
-  if (insertedComment) return res.status(201).json({ status: true, data: insertedComment });
-  else return res.json({ status: false, data: [] });
+      proposal_id} = JSON.parse(msg)
+     if(!author,!markdown,!proposal_id) return res.json({status:false})
+      const insertedComment = await db.put(
+        {
+          author,
+          markdown,
+          proposal_id,
+          timestamp: new Date().getTime(),
+          main_thread: true,
+        },
+        new Date().getTime().toString()
+      );
+      if (insertedComment) return res.status(201).json({ status: true, data: insertedComment,token });
+      else return res.json({ status: false, data: [] });
+  }catch(e){
+return res.json({status:false})
+  }
+ 
 });
 app.post("/add_reply", async (req, res) => {
   const {
@@ -156,4 +191,4 @@ app.delete("/delete/:key", async (req, res) => {
 
 // export 'app'
 module.exports = app;
-// app.listen(3000)
+// app.listen(3001)
