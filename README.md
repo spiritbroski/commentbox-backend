@@ -1,6 +1,6 @@
 # Comment Box backend
 
-[![Deploy](https://button.deta.dev/1/svg)](https://go.deta.dev/deploy)
+[![Deploy](https://button.deta.dev/1/svg)](https://go.deta.dev/deploy?repo=https://github.com/spiritbro1/commentbox-backend)
 
 This repo is used to save comment data in snapshot
 
