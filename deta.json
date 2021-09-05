@@ -1,0 +1,18 @@
+{
+    "name": "Comment Box Backend",
+    "description": "to save comment on snapshot plugin", 
+    "env": [
+        {
+            "key": "PROJECT_KEY",
+            "description": "your deta project key",
+            "value": "",
+            "required": true 
+        },
+        {
+            "key": "JWT_SECRET",
+            "description": "your jwt secret",
+            "value": "",
+            "required": true 
+        }
+    ]
+}

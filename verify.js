@@ -1,5 +1,5 @@
-const ethUtil =require('ethereumjs-util');
-const { convertUtf8ToHex } = require('@walletconnect/utils');
+const ethUtil = require("ethereumjs-util");
+const { convertUtf8ToHex } = require("@walletconnect/utils");
 
 function recoverPublicKey(sig, hash) {
   const params = ethUtil.fromRpcSig(sig);
@@ -18,20 +18,18 @@ async function verifySignature(
   hash
   // chainId: number
 ) {
-
-    const signer = recoverPublicKey(sig, hash);
-    return signer.toLowerCase() === address.toLowerCase();
-  
+  const signer = recoverPublicKey(sig, hash);
+  return signer.toLowerCase() === address.toLowerCase();
 }
 
 function encodePersonalMessage(msg) {
   const data = ethUtil.toBuffer(convertUtf8ToHex(msg));
   const buf = Buffer.concat([
     Buffer.from(
-      '\u0019Ethereum Signed Message:\n' + data.length.toString(),
-      'utf8'
+      "\u0019Ethereum Signed Message:\n" + data.length.toString(),
+      "utf8"
     ),
-    data
+    data,
   ]);
   return ethUtil.bufferToHex(buf);
 }
@@ -42,4 +40,9 @@ function hashPersonalMessage(msg) {
   const hash = ethUtil.keccak256(buf);
   return ethUtil.bufferToHex(hash);
 }
-module.exports = {hashPersonalMessage,encodePersonalMessage,verifySignature,recoverPublicKey}
+module.exports = {
+  hashPersonalMessage,
+  encodePersonalMessage,
+  verifySignature,
+  recoverPublicKey,
+};
