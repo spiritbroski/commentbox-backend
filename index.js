@@ -31,22 +31,7 @@ app.get("/all_reply/:proposal_id/:main_thread_id", async (req, res) => {
   );
   return res.json({ status: true, data: proposalData });
 });
-app.get('/graphql',async (req,res)=>{
-  const query = gql`
-  query {
-    space(id: "yam.eth") {
-      id
-      name
-      about
-      network
-      symbol
-      members
-    }
-  }
-`
- 
-  return res.json((await request('https://hub.snapshot.org/graphql', query)))
-})
+
 async function verifyUser(req){
   const { address,msg,sig } = req.body;
   if (!req.body || !address || !msg ) return false;
@@ -164,6 +149,24 @@ app.post("/add_reply", async (req, res) => {
   }
   
 });
+async function checkAuthorOrAdmin(address,author,spaceId){
+  const query = gql`
+  query {
+    space(id: "${spaceId}") {
+     admins
+    }
+  }
+`;
+try{
+  const res=await request('https://hub.snapshot.org/graphql', query)
+  return address===author||res.space.admins.length>0?res.space.admins.includes(address):false;
+}catch(e){
+  return false;
+}
+
+ 
+  
+}
 app.post("/update/:key", async (req, res) => {
   if (!req.params.key) return res.json({ status: false });
 
@@ -173,7 +176,9 @@ app.post("/update/:key", async (req, res) => {
     const {token,msg}=checkUser;
     const update = JSON.parse(msg);
     update.edit_timestamp = new Date().getTime();
-    await db.update(update, req.params.key);
+    const getItem = await db.get(req.params.key);
+    if(!(await checkAuthorOrAdmin(req.body.address,getItem.author,req.body.space_id))) return res.json({ status: false });
+    await db.update(update, req.params.key);    
     const getItemFirst = await db.get(req.params.key);
     if (!getItemFirst.main_thread) {
       let res = await db.fetch({ reply_thread_id: getItemFirst.key });
@@ -203,6 +208,7 @@ app.post("/delete", async (req, res) => {
     const {key}=JSON.parse(msg)
     if(!key) return res.json({status:false})
     const getItemFirst = await db.get(key);
+    if(!(await checkAuthorOrAdmin(req.body.address,getItemFirst.author,req.body.space_id))) return res.json({ status: false });
     if (getItemFirst.main_thread) {
       let res = await db.fetch({ main_thread_id: getItemFirst.key });
       let allItems = res.items;
