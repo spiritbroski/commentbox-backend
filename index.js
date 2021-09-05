@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require('jsonwebtoken');
+const { request, gql } = require('graphql-request')
 app.use(express.json());
 app.use(express.urlencoded());
 app.use(cors());
@@ -30,6 +31,22 @@ app.get("/all_reply/:proposal_id/:main_thread_id", async (req, res) => {
   );
   return res.json({ status: true, data: proposalData });
 });
+app.get('/graphql',async (req,res)=>{
+  const query = gql`
+  query {
+    space(id: "yam.eth") {
+      id
+      name
+      about
+      network
+      symbol
+      members
+    }
+  }
+`
+ 
+  return res.json((await request('https://hub.snapshot.org/graphql', query)))
+})
 async function verifyUser(req){
   const { address,msg,sig } = req.body;
   if (!req.body || !address || !msg ) return false;
@@ -41,31 +58,45 @@ async function verifyUser(req){
       sig,
       hashPersonalMessage(msg)
     ))){
-      
+    
       return false
     } else {
-    
+ 
       token = jwt.sign({
         address
       }, 'secret')
-      return {token}
+      return {token,msg}
     }
   }else{
-   
+    
     try{
       const decoded = jwt.verify(req.headers.authorization, 'secret');
+      
         if(decoded.address!==address) return false; else return {msg};
     }catch(e){
-     
-      return false;
+      if((await verifySignature(
+        address,
+        sig,
+        hashPersonalMessage(msg)
+      ))){
+        token = jwt.sign({
+          address
+        }, 'secret')
+        return {token,msg}
+        
+      }else{
+        return false;
+      }
+      
     }
   }
 }
 app.post("/add", async (req, res) => {
-  const checkUser=await verifyUser(req);
-  if(!checkUser) return res.json({status:false})
-  const {token,msg}=checkUser;
+
   try{
+    const checkUser=await verifyUser(req);
+    if(!checkUser) return res.json({status:false})
+    const {token,msg}=checkUser;
     const {author,
       markdown,
       proposal_id} = JSON.parse(msg)
@@ -83,51 +114,64 @@ app.post("/add", async (req, res) => {
       if (insertedComment) return res.status(201).json({ status: true, data: insertedComment,token });
       else return res.json({ status: false, data: [] });
   }catch(e){
-return res.json({status:false})
+return res.json({status:false,data:msg})
   }
  
 });
 app.post("/add_reply", async (req, res) => {
-  const {
-    author,
-    markdown,
-    proposal_id,
-    main_thread_id,
-    reply_to,
-    reply,
-    reply_thread_id,
-  } = req.body;
-  if (
-    !author ||
-    !markdown ||
-    !proposal_id ||
-    !main_thread_id ||
-    !reply_to ||
-    !reply ||
-    !reply_thread_id
-  )
-    return res.json({ status: false, data: [] });
-  const insertedComment = await db.put(
-    {
+ 
+  try{
+    const checkUser=await verifyUser(req);
+    if(!checkUser) return res.json({status:false})
+    const {token,msg}=checkUser;
+    const {
       author,
       markdown,
       proposal_id,
-      timestamp: new Date().getTime(),
-      main_thread: false,
       main_thread_id,
       reply_to,
       reply,
       reply_thread_id,
-    },
-    new Date().getTime().toString()
-  );
-  if (insertedComment) return res.status(201).json({ status: true, data: insertedComment });
-  else return res.json({ status: false, data: [] });
+    } = JSON.parse(msg);
+    if (
+      !author ||
+      !markdown ||
+      !proposal_id ||
+      !main_thread_id ||
+      !reply_to ||
+      !reply ||
+      !reply_thread_id
+    )
+      return res.json({ status: false, data: [] });
+    const insertedComment = await db.put(
+      {
+        author,
+        markdown,
+        proposal_id,
+        timestamp: new Date().getTime(),
+        main_thread: false,
+        main_thread_id,
+        reply_to,
+        reply,
+        reply_thread_id,
+      },
+      new Date().getTime().toString()
+    );
+    if (insertedComment) return res.status(201).json({ status: true, data: insertedComment,token });
+    else return res.json({ status: false, data: [] });
+  }catch(e){
+    return res.json({status:false})
+  }
+  
 });
 app.post("/update/:key", async (req, res) => {
   if (!req.params.key) return res.json({ status: false });
+
   try {
-    const update = req.body;
+    const checkUser=await verifyUser(req);
+    if(!checkUser) return res.json({status:false})
+    const {token,msg}=checkUser;
+    const update = JSON.parse(msg);
     update.edit_timestamp = new Date().getTime();
     await db.update(update, req.params.key);
     const getItemFirst = await db.get(req.params.key);
@@ -146,47 +190,56 @@ app.post("/update/:key", async (req, res) => {
       }
     }
     
-    return res.json({ status: true,data:getItemFirst });
+    return res.json({ status: true,data:getItemFirst,token });
   } catch (e) {
     return res.json({ status: false });
   }
 });
-app.delete("/delete/:key", async (req, res) => {
-  if (!req.params.key) return res.json({ status: false });
-  const getItemFirst = await db.get(req.params.key);
-  if (getItemFirst.main_thread) {
-    let res = await db.fetch({ main_thread_id: getItemFirst.key });
-    let allItems = res.items;
-    while (res.last) {
-      res = await db.fetch(
-        { main_thread_id: getItemFirst.key },
-        { last: res.last }
-      );
-      allItems = allItems.concat(res.items);
+app.post("/delete", async (req, res) => {
+  try{
+    const checkUser=await verifyUser(req);
+    if(!checkUser) return res.json({status:false})
+    const {token,msg}=checkUser;
+    const {key}=JSON.parse(msg)
+    if(!key) return res.json({status:false})
+    const getItemFirst = await db.get(key);
+    if (getItemFirst.main_thread) {
+      let res = await db.fetch({ main_thread_id: getItemFirst.key });
+      let allItems = res.items;
+      while (res.last) {
+        res = await db.fetch(
+          { main_thread_id: getItemFirst.key },
+          { last: res.last }
+        );
+        allItems = allItems.concat(res.items);
+      }
+      for (let i = 0; i < allItems.length; i++) {
+        await db.delete(allItems[i].key);
+      }
+    } else {
+      let res = await db.fetch({ reply_thread_id: getItemFirst.key });
+      let allItems = res.items;
+      while (res.last) {
+        res = await db.fetch(
+          { reply_thread_id: getItemFirst.key },
+          { last: res.last }
+        );
+        allItems = allItems.concat(res.items);
+      }
+      for (let i = 0; i < allItems.length; i++) {
+        await db.update({ deleted: true, edited: false }, allItems[i].key);
+      }
     }
-    for (let i = 0; i < allItems.length; i++) {
-      await db.delete(allItems[i].key);
-    }
-  } else {
-    let res = await db.fetch({ reply_thread_id: getItemFirst.key });
-    let allItems = res.items;
-    while (res.last) {
-      res = await db.fetch(
-        { reply_thread_id: getItemFirst.key },
-        { last: res.last }
-      );
-      allItems = allItems.concat(res.items);
-    }
-    for (let i = 0; i < allItems.length; i++) {
-      await db.update({ deleted: true, edited: false }, allItems[i].key);
-    }
+    await db.delete(key);
+    const getItem = await db.get(key);
+    if (!getItem) {
+      // const update = await db.fetch();
+      return res.status(201).json({ status: true, data: [],token });
+    } else return res.json({ status: false, data: [] });
+  }catch(e){
+    return res.json({status:false})
   }
-  await db.delete(req.params.key);
-  const getItem = await db.get(req.params.key);
-  if (!getItem) {
-    const update = await db.fetch();
-    return res.status(201).json({ status: true, data: [] });
-  } else return res.json({ status: false, data: [] });
+  
 });
 
 // export 'app'

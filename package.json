@@ -15,6 +15,8 @@
     "deta": "^1.0.0",
     "ethereumjs-util": "^7.1.0",
     "express": "^4.17.1",
+    "graphql": "^15.5.2",
+    "graphql-request": "^3.5.0",
     "jsonwebtoken": "^8.5.1",
     "tslib": "^2.3.1"
   }
