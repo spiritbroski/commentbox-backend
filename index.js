@@ -44,7 +44,7 @@ async function verifyUser(req) {
         {
           address,
         },
-        process.env.JWT_SECRET
+        process.env.JWT_SECRET,{expiresIn:86400}
       );
       return { token, msg };
     }
@@ -55,25 +55,18 @@ async function verifyUser(req) {
       if (decoded.address !== address) return false;
       else return { msg };
     } catch (e) {
-      if (await verifySignature(address, sig, hashPersonalMessage(msg))) {
-        token = jwt.sign(
-          {
-            address,
-          },
-          process.env.JWT_SECRET
-        );
-        return { token, msg };
-      } else {
-        return false;
-      }
+    return {refresh:true}
     }
   }
 }
 app.post("/add", async (req, res) => {
   try {
     const checkUser = await verifyUser(req);
-    if (!checkUser) return res.json({ status: false });
-    const { token, msg } = checkUser;
+    if (!checkUser) return res.json({status:false});
+    const { token, msg,refresh } = checkUser;
+    if(refresh) {
+      res.status(401);
+      return res.json({refresh:true});}
     const { author, markdown, proposal_id } = JSON.parse(msg);
     if ((!author, !markdown, !proposal_id)) return res.json({ status: false });
     const insertedComment = await db.put(
@@ -99,7 +92,10 @@ app.post("/add_reply", async (req, res) => {
   try {
     const checkUser = await verifyUser(req);
     if (!checkUser) return res.json({ status: false });
-    const { token, msg } = checkUser;
+    const { token, msg,refresh } = checkUser;
+    if(refresh) {
+      res.status(401);
+      return res.json({refresh:true});}
     const {
       author,
       markdown,
@@ -152,8 +148,8 @@ async function checkAuthorOrAdmin(address, author, spaceId) {
 `;
   try {
     const res = await request("https://hub.snapshot.org/graphql", query);
-    return address === author || res.space.admins.length > 0
-      ? res.space.admins.includes(address)
+    return address === author || res.space.admins.includes(address)
+      ? true
       : false;
   } catch (e) {
     return false;
@@ -165,7 +161,10 @@ app.post("/update/:key", async (req, res) => {
   try {
     const checkUser = await verifyUser(req);
     if (!checkUser) return res.json({ status: false });
-    const { token, msg } = checkUser;
+    const { token, msg,refresh } = checkUser;
+    if(refresh) {
+      res.status(401);
+      return res.json({refresh:true});}
     const update = JSON.parse(msg);
     update.edit_timestamp = new Date().getTime();
     const getItem = await db.get(req.params.key);
@@ -203,18 +202,21 @@ app.post("/delete", async (req, res) => {
   try {
     const checkUser = await verifyUser(req);
     if (!checkUser) return res.json({ status: false });
-    const { token, msg } = checkUser;
+    const { token, msg,refresh } = checkUser;
+    if(refresh) {
+      res.status(401);
+      return res.json({refresh:true});}
     const { key } = JSON.parse(msg);
     if (!key) return res.json({ status: false });
     const getItemFirst = await db.get(key);
-    if (
+       if (
       !(await checkAuthorOrAdmin(
         req.body.address,
         getItemFirst.author,
         req.body.space_id
       ))
     )
-      return res.json({ status: false });
+      return res.json({ status: false});
     if (getItemFirst.main_thread) {
       let res = await db.fetch({ main_thread_id: getItemFirst.key });
       let allItems = res.items;
